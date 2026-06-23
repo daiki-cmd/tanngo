@@ -1,0 +1,1724 @@
+<!doctype html>
+<html lang="ja">
+<head>
+	<meta charset="UTF-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+	<title>単語帳アプリ</title>
+	<style>
+		:root {
+			--bg-1: #f4efe6;
+			--bg-2: #dcebe5;
+			--ink: #1f2a24;
+			--card: #fffaf0cc;
+			--line: #203328;
+			--ok: #1e8f4d;
+			--ng: #b3261e;
+			--accent: #d96a2b;
+		}
+
+		* {
+			box-sizing: border-box;
+		}
+
+		body {
+			margin: 0;
+			font-family: "Noto Sans JP", "Hiragino Sans", "Yu Gothic", sans-serif;
+			color: var(--ink);
+			min-height: 100vh;
+			background:
+				radial-gradient(circle at 10% 10%, #ffffffaa 0%, #ffffff00 35%),
+				radial-gradient(circle at 90% 80%, #ffd8b866 0%, #ffd8b800 36%),
+				linear-gradient(135deg, var(--bg-1), var(--bg-2));
+			display: grid;
+			place-items: center;
+			padding: 24px;
+			padding-bottom: calc(104px + env(safe-area-inset-bottom, 0px));
+			-webkit-text-size-adjust: 100%;
+		}
+
+		.app {
+			width: min(980px, 100%);
+			display: grid;
+			gap: 16px;
+			animation: rise 450ms ease-out;
+		}
+
+		@keyframes rise {
+			from {
+				opacity: 0;
+				transform: translateY(10px);
+			}
+			to {
+				opacity: 1;
+				transform: translateY(0);
+			}
+		}
+
+		.panel {
+			background: var(--card);
+			border: 2px solid var(--line);
+			border-radius: 18px;
+			padding: 16px;
+			backdrop-filter: blur(2px);
+			box-shadow: 8px 8px 0 #00000020;
+		}
+
+		h1 {
+			margin: 0;
+			font-family: "BIZ UDPGothic", "Noto Sans JP", sans-serif;
+			letter-spacing: 0.06em;
+			font-size: clamp(1.3rem, 2.6vw, 2rem);
+		}
+
+		.sub {
+			margin: 6px 0 0;
+			font-size: 0.94rem;
+			opacity: 0.85;
+		}
+
+		.grid {
+			display: grid;
+			grid-template-columns: 1fr 1fr;
+			gap: 12px;
+		}
+
+		label {
+			display: block;
+			font-size: 0.88rem;
+			margin-bottom: 6px;
+			font-weight: 700;
+		}
+
+		input, button {
+			width: 100%;
+			font: inherit;
+		}
+
+		input {
+			border: 2px solid var(--line);
+			border-radius: 12px;
+			padding: 10px 12px;
+			background: #fff;
+			font-size: 16px;
+		}
+
+		button {
+			border: 2px solid var(--line);
+			border-radius: 12px;
+			padding: 10px 12px;
+			background: #fff;
+			cursor: pointer;
+			font-weight: 700;
+			min-height: 44px;
+			touch-action: manipulation;
+			-webkit-tap-highlight-color: transparent;
+			transition: transform 120ms ease, background-color 120ms ease;
+		}
+
+		@media (hover: hover) {
+			button:hover {
+				transform: translateY(-1px);
+			}
+		}
+
+		.primary {
+			background: #ffe5d2;
+			border-color: var(--accent);
+		}
+
+		.scope-active {
+			background: #e8f6ed;
+			border-color: #1e8f4d;
+		}
+
+		.danger {
+			background: #ffe7e5;
+		}
+
+		.controls {
+			display: flex;
+			gap: 8px;
+			margin-top: 10px;
+			flex-wrap: wrap;
+		}
+
+		.controls button {
+			width: auto;
+			min-width: 140px;
+			flex: 1;
+		}
+
+		.mode {
+			display: flex;
+			gap: 14px;
+			flex-wrap: wrap;
+			margin-bottom: 10px;
+		}
+
+		.mode label {
+			margin: 0;
+			display: inline-flex;
+			align-items: center;
+			gap: 8px;
+			font-weight: 600;
+		}
+
+		.mode input {
+			width: auto;
+			accent-color: var(--accent);
+		}
+
+		.quiz-card {
+			border: 2px dashed var(--line);
+			border-radius: 16px;
+			padding: 20px 16px;
+			text-align: center;
+			background: #fffef9;
+			min-height: 180px;
+			display: grid;
+			place-items: center;
+			user-select: none;
+			touch-action: pan-y;
+			-webkit-tap-highlight-color: transparent;
+			transition: transform 140ms ease;
+		}
+
+		.quiz-card.tap {
+			cursor: pointer;
+		}
+
+		.quiz-card.dragging {
+			transition: none;
+		}
+
+		.quiz-card.feedback-correct {
+			border-color: var(--ok);
+			background: #eefbf2;
+			animation: correctFlash 900ms ease;
+		}
+
+		.quiz-card.feedback-wrong {
+			border-color: var(--ng);
+			background: #fff1f0;
+			animation: wrongShake 900ms ease;
+		}
+
+		.quiz-label {
+			font-size: 0.84rem;
+			opacity: 0.8;
+			margin-bottom: 6px;
+		}
+
+		.quiz-text {
+			font-size: clamp(1.1rem, 3.4vw, 1.9rem);
+			font-weight: 800;
+			word-break: break-word;
+		}
+
+		.answer-area {
+			margin-top: 12px;
+			display: none;
+			gap: 8px;
+			align-items: stretch;
+		}
+
+		.answer-area.show {
+			display: grid;
+			grid-template-columns: 1fr auto;
+		}
+
+		.result {
+			min-height: 1.4em;
+			margin-top: 8px;
+			font-weight: 700;
+			transition: color 120ms ease;
+		}
+
+		.ok {
+			color: var(--ok);
+		}
+
+		.ng {
+			color: var(--ng);
+		}
+
+		@keyframes correctFlash {
+			0% {
+				transform: scale(1);
+				box-shadow: 0 0 0 0 rgba(52, 140, 92, 0.18);
+			}
+			35% {
+				transform: scale(1.02);
+				box-shadow: 0 0 0 10px rgba(52, 140, 92, 0.08);
+			}
+			100% {
+				transform: scale(1);
+				box-shadow: 0 0 0 0 rgba(52, 140, 92, 0);
+			}
+		}
+
+		@keyframes wrongShake {
+			0%,
+			100% {
+				transform: translateX(0);
+			}
+			15% {
+				transform: translateX(-6px);
+			}
+			30% {
+				transform: translateX(6px);
+			}
+			45% {
+				transform: translateX(-4px);
+			}
+			60% {
+				transform: translateX(4px);
+			}
+			75% {
+				transform: translateX(-2px);
+			}
+		}
+
+		.list {
+			margin-top: 12px;
+			max-height: 220px;
+			overflow: auto;
+			border: 1px solid #20332844;
+			border-radius: 10px;
+			background: #fff;
+		}
+
+		.list.hidden {
+			display: none;
+		}
+
+		.row {
+			display: grid;
+			grid-template-columns: 1fr 1fr auto;
+			gap: 8px;
+			padding: 8px 10px;
+			border-top: 1px solid #20332822;
+			align-items: center;
+		}
+
+		.row:first-child {
+			border-top: 0;
+		}
+
+		.muted {
+			opacity: 0.75;
+			font-size: 0.9rem;
+		}
+
+		.selector-panel {
+			margin-top: 12px;
+			padding: 10px;
+			border: 1px solid #20332844;
+			border-radius: 10px;
+			background: #fff;
+		}
+
+		.selector-panel.hidden {
+			display: none;
+		}
+
+		.selector-row {
+			display: grid;
+			grid-template-columns: auto 1fr;
+			gap: 8px;
+			align-items: center;
+			padding: 8px 4px;
+			border-top: 1px solid #20332822;
+		}
+
+		.selector-row:first-child {
+			border-top: 0;
+		}
+
+		.summary-panel {
+			margin-top: 12px;
+			padding: 12px;
+			border: 2px solid #20332866;
+			border-radius: 12px;
+			background: #fff;
+		}
+
+		.summary-panel.hidden {
+			display: none;
+		}
+
+		@media (max-width: 700px) {
+			body {
+				padding: 8px 8px calc(112px + env(safe-area-inset-bottom, 0px)) 8px;
+				align-items: start;
+			}
+
+			.app {
+				width: 100%;
+				gap: 10px;
+			}
+
+			.panel {
+				padding: 14px;
+				border-radius: 14px;
+			}
+
+			.grid {
+				grid-template-columns: 1fr;
+			}
+
+			.row {
+				grid-template-columns: 1fr 1fr auto;
+				gap: 6px;
+			}
+
+			.controls {
+				gap: 6px;
+			}
+
+			.controls button {
+				min-width: 0;
+				padding: 10px 8px;
+				font-size: 0.88rem;
+			}
+
+			.quiz-card {
+				min-height: 220px;
+			}
+
+			.quiz-text {
+				font-size: clamp(1.3rem, 5vw, 2rem);
+			}
+
+			.tab-bar {
+				position: fixed;
+				bottom: 0;
+				left: 0;
+				right: 0;
+				transform: none;
+				width: 100%;
+				padding: 8px 12px;
+				padding-bottom: calc(8px + env(safe-area-inset-bottom, 0px));
+				background: rgba(255, 250, 240, 0.96);
+				border-top: 2px solid var(--line);
+				border-radius: 0;
+				backdrop-filter: blur(12px);
+				-webkit-backdrop-filter: blur(12px);
+				box-shadow: 0 -4px 16px #00000018;
+				z-index: 100;
+				flex-wrap: nowrap;
+			}
+
+			.tab-btn {
+				min-width: 0;
+				flex: 1;
+				padding: 10px 6px;
+				font-size: 0.88rem;
+			}
+		}
+
+		.tab-bar {
+			display: flex;
+			gap: 8px;
+			flex-wrap: wrap;
+			position: fixed;
+			bottom: 0;
+			left: 50%;
+			transform: translateX(-50%);
+			width: min(980px, calc(100% - 48px));
+			padding: 8px 12px;
+			padding-bottom: calc(8px + env(safe-area-inset-bottom, 0px));
+			background: rgba(255, 250, 240, 0.96);
+			border-top: 2px solid var(--line);
+			border-radius: 18px 18px 0 0;
+			backdrop-filter: blur(12px);
+			-webkit-backdrop-filter: blur(12px);
+			box-shadow: 0 -4px 16px #00000018;
+			z-index: 100;
+		}
+
+		.tab-btn {
+			width: auto;
+			flex: 1;
+			min-width: 120px;
+			padding: 10px 20px;
+			border: 2px solid var(--line);
+			border-radius: 12px;
+			background: #fff;
+			cursor: pointer;
+			font: inherit;
+			font-weight: 700;
+			transition: background-color 120ms ease, border-color 120ms ease;
+		}
+
+		.tab-btn.active {
+			background: #ffe5d2;
+			border-color: var(--accent);
+		}
+
+		.page {
+			display: none;
+		}
+
+		.page.active {
+			display: contents;
+		}
+	</style>
+</head>
+<body>
+	<main class="app">
+		<section class="panel">
+			<div style="display: flex; align-items: center; gap: 16px; flex-wrap: wrap;">
+				<h1 style="flex: 1; min-width: 120px;">自作単語帳</h1>
+			</div>
+		</section>
+
+		<div id="pageMake" class="page active">
+		<section class="panel">
+			<div class="grid">
+				<div>
+					<label for="enInput">英語</label>
+					<input id="enInput" placeholder="example: apple" />
+				</div>
+				<div>
+					<label for="jaInput">日本語</label>
+					<input id="jaInput" placeholder="example: りんご" />
+				</div>
+			</div>
+			<div class="controls">
+				<button id="addBtn" class="primary">カード追加</button>
+				<button id="addPoolBtn">プールから追加</button>
+				<button id="toggleListBtn">全カード一覧を表示</button>
+				<button id="clearBtn" class="danger">全削除</button>
+			</div>
+			<div class="grid" style="margin-top: 10px;">
+				<div>
+					<label for="poolSelect">問題プール</label>
+					<select id="poolSelect" style="width: 100%; border: 2px solid var(--line); border-radius: 12px; padding: 10px 12px; background: #fff;"></select>
+				</div>
+				<div>
+					<label for="poolNote">説明</label>
+					<p id="poolNote" class="muted" style="margin: 10px 0 0;">プールを選んで「プールから追加」で登録できます。</p>
+				</div>
+			</div>
+			<p id="count" class="muted">カード: 0件</p>
+			<div id="list" class="list hidden"></div>
+		</section>
+		</div>
+
+		<div id="pageStudy" class="page">
+		<section class="panel">
+			<div class="mode">
+				<label><input type="radio" name="mode" value="en-ja" checked /> 英語 → 日本語（タップで答え）</label>
+				<label><input type="radio" name="mode" value="ja-en" /> 日本語 → 英語（入力で判定）</label>
+			</div>
+
+			<div id="quizCard" class="quiz-card tap" title="タップで表/裏を切り替え">
+				<div>
+					<div id="quizLabel" class="quiz-label"></div>
+					<div id="quizText" class="quiz-text">カードを追加してください</div>
+				</div>
+			</div>
+
+			<div id="answerArea" class="answer-area">
+				<input id="spellInput" placeholder="英単語を入力" />
+				<button id="checkBtn" class="primary">判定</button>
+			</div>
+			<div id="result" class="result"></div>
+
+			<div class="controls">
+				<button id="toggleSelectorBtn">出題カードを選ぶ</button>
+				<button id="nextBtn">次の問題</button>
+				<button id="showBtn">答えを見る</button>
+			</div>
+			<p id="swipeNote" class="muted">英→日では、タップで答え表示。答え確認後に左スワイプで間違い、右スワイプで正解に仕分けできます。</p>
+			<p id="bucketCount" class="muted">仕分け: 正解0件 / 間違い0件</p>
+			<div class="controls">
+				<button id="allScopeBtn" class="scope-active">通常出題</button>
+				<button id="wrongScopeBtn">間違いだけもう一周</button>
+			</div>
+			<p id="scopeState" class="muted">現在: 通常出題</p>
+			<div id="summaryPanel" class="summary-panel hidden">
+				<p id="summaryText" class="muted">学習結果</p>
+				<div class="controls" style="margin-top: 0;">
+					<button id="finishRoundBtn">終了</button>
+					<button id="retrySameBtn" class="primary">同じのをもう一周</button>
+					<button id="retryWrongBtn">間違いだけもう一周</button>
+				</div>
+			</div>
+			<div id="selectorPanel" class="selector-panel hidden">
+				<p id="selectedCount" class="muted">出題対象: 0件</p>
+				<div class="controls" style="margin-top: 0;">
+					<button id="selectAllBtn">全部選択</button>
+					<button id="clearSelectBtn">全部解除</button>
+				</div>
+				<div id="selectorList" class="list" style="max-height: 180px;"></div>
+			</div>
+		</section>
+		</div>
+	</main>
+
+	<div class="tab-bar">
+		<button id="tabMake" class="tab-btn active">単語帳を作る</button>
+		<button id="tabStudy" class="tab-btn">学習する</button>
+	</div>
+
+	<script>
+		const STORAGE_KEY = "tanngo_cards_v1";
+		const STORAGE_SELECTED_KEY = "tanngo_selected_ids_v1";
+		const STORAGE_RESULTS_KEY = "tanngo_results_v1";
+
+		const POOLS = [
+			{
+				name: "中３ Unit1（1W）",
+				description: "中3 Unit1 P9-17 の単語（1Wシート）",
+				items: [
+					{ en: "safari", ja: "観察旅行、サファリ" },
+					{ en: "illegal", ja: "違法の、不法の" },
+					{ en: "gallery", ja: "ギャラリー、美術館" },
+					{ en: "kill", ja: "～を殺す" },
+					{ en: "the Republic of South Africa", ja: "南アフリカ共和国" },
+					{ en: "rhino(s)", ja: "サイ" },
+					{ en: "southern", ja: "南の、南部の" },
+					{ en: "horn(s)", ja: "角" },
+					{ en: "tip", ja: "先、先端" },
+					{ en: "terrible", ja: "ひどい、悲惨な" },
+					{ en: "African", ja: "アフリカの" },
+					{ en: "safely", ja: "安全に、無事に" },
+					{ en: "continent", ja: "大陸" },
+					{ en: "savanna", ja: "サバンナ" },
+					{ en: "rainbow", ja: "多種多様なもの" },
+					{ en: "ecosystem", ja: "生態系" },
+					{ en: "nation", ja: "国、国家" },
+					{ en: "living thing(s)", ja: "生物" },
+					{ en: "cultural", ja: "文化的な、文化の" },
+					{ en: "connect(ed)", ja: "～をつなぐ" },
+					{ en: "spoken", ja: "speakの過去分詞形" },
+					{ en: "circle", ja: "輪、循環" },
+					{ en: "official", ja: "公式の、公の" },
+					{ en: "human(s)", ja: "人間（の）" },
+					{ en: "national", ja: "国立の" },
+					{ en: "cut off ~", ja: "～を切り落とす" },
+					{ en: "diverse", ja: "多様な、種々の" },
+					{ en: "so that ~", ja: "～をするために" },
+					{ en: "wildlife", ja: "野生生物" },
+					{ en: "decrease", ja: "減る" },
+					{ en: "however", ja: "しかしながら" },
+					{ en: "increase", ja: "増える" },
+					{ en: "through", ja: "～のあちこちを" },
+					{ en: "less", ja: "（～より）少なく" },
+					{ en: "real time", ja: "リアルタイム" },
+					{ en: "shocking", ja: "衝撃的な、恐ろしい" },
+					{ en: "internet", ja: "インターネット" },
+					{ en: "less than ~", ja: "～より少ない" },
+					{ en: "introduce ~ to …", ja: "～を…に紹介する" },
+					{ en: "giant panda(s)", ja: "ジャイアントパンダ" },
+					{ en: "beadwork", ja: "ビーズ細工" },
+					{ en: "endangered", ja: "絶滅の危機にある" },
+					{ en: "bracelet(s)", ja: "ブレスレット、腕輪" },
+					{ en: "remove(d)", ja: "～を取り除く" },
+					{ en: "corn", ja: "トウモロコシ" },
+					{ en: "news", ja: "ニュース、報道" },
+					{ en: "sell", ja: "～を売る、～を販売している" },
+					{ en: "species", ja: "（分類上の）種" },
+					{ en: "sold", ja: "24の過去形、過去分詞形" },
+					{ en: "destruction", ja: "破壊" },
+					{ en: "stick", ja: "棒状の物、棒" },
+					{ en: "bamboo", ja: "竹" },
+					{ en: "make ~ from …", ja: "…から～を作る" },
+					{ en: "forest(s)", ja: "森、山林" },
+					{ en: "elephant", ja: "ゾウ" },
+					{ en: "breed", ja: "～を繁殖させる" },
+					{ en: "footprint", ja: "足跡" },
+					{ en: "remain", ja: "残っている" },
+					{ en: "bathe", ja: "入浴する" },
+					{ en: "wild", ja: "野生の" },
+					{ en: "bathing", ja: "30の進行形" },
+					{ en: "technology", ja: "科学技術" },
+					{ en: "mud", ja: "泥、ぬかるみ" },
+					{ en: "yet", ja: "まだ（～ない）" },
+					{ en: "themselves", ja: "彼ら自身を（に）" },
+					{ en: "digital", ja: "デジタルの" },
+					{ en: "near here", ja: "この近くに" },
+					{ en: "system", ja: "システム、方式" },
+					{ en: "blackboard", ja: "黒板" },
+					{ en: "habitat(s)", ja: "生息地" },
+					{ en: "carry", ja: "～を運ぶ、持っていく" },
+					{ en: "wildfire(s)", ja: "野火、山火事" },
+					{ en: "mat(s)", ja: "マット" },
+					{ en: "deep", ja: "深い" },
+					{ en: "conservation", ja: "保護" },
+					{ en: "success", ja: "成功" },
+					{ en: "monitor", ja: "～を監視する" },
+					{ en: "no longer", ja: "もはや～ない" }
+				]
+			},
+			{
+				name: "中３ Unit6・中2 Unit7（7W）",
+				description: "中3 Unit6・中2 Unit7 の単語（7Wシート）",
+				items: [
+					{ en: "perform", ja: "～を上演する" },
+					{ en: "colorful", ja: "カラフルな" },
+					{ en: "international", ja: "国際的な" },
+					{ en: "choose", ja: "選ぶ" },
+					{ en: "crazy", ja: "ばかげた" },
+					{ en: "chose", ja: "42の過去形" },
+					{ en: "musical", ja: "ミュージカル" },
+					{ en: "easy to understand", ja: "理解しやすい" },
+					{ en: "than", ja: "～よりも" },
+					{ en: "original", ja: "独創的な" },
+					{ en: "script", ja: "脚本、台本" },
+					{ en: "theme", ja: "主題、テーマ" },
+					{ en: "friendship", ja: "友情" },
+					{ en: "come up with ~", ja: "～を思いつく" },
+					{ en: "castle", ja: "城" },
+					{ en: "better", ja: "より良い" },
+					{ en: "Jonathan", ja: "ジョナサン" },
+					{ en: "android", ja: "アンドロイド" },
+					{ en: "spaceship", ja: "宇宙船" },
+					{ en: "normal", ja: "標準の" },
+					{ en: "teamwork", ja: "チームワーク" },
+					{ en: "most", ja: "（最上級をつくる）最も" },
+					{ en: "take place", ja: "起こる、行われる" },
+					{ en: "question(s)", ja: "質問" },
+					{ en: "answer(s)", ja: "答え" },
+					{ en: "rehearse", ja: "～のリハーサルをする" },
+					{ en: "rehearsing", ja: "リハーサル" },
+					{ en: "blow", ja: "～を飛ばす" },
+					{ en: "blew", ja: "25の過去形" },
+					{ en: "break", ja: "休憩" },
+					{ en: "overworked", ja: "働きすぎの" },
+					{ en: "anybody", ja: "誰でも" },
+					{ en: "acting", ja: "演技" },
+					{ en: "hey", ja: "ちょっと" },
+					{ en: "calm", ja: "鎮まる、落ち着く" },
+					{ en: "blow one's lines", ja: "セリフを忘れる" },
+					{ en: "take a break", ja: "ひと休みする" },
+					{ en: "calm down", ja: "落ち着く" },
+					{ en: "What did you say?", ja: "何だって？" },
+					{ en: "size", ja: "大きさ" },
+					{ en: "letter(s)", ja: "文字" },
+					{ en: "eye-catching", ja: "人目をひく" },
+					{ en: "excitement", ja: "興奮、わくわく" }
+				]
+			},
+			{
+				name: "中３ Unit6・中2 Let's Read 2（LRW）",
+				description: "中3 Unit6・中2 Let's Read2 の単語（LRWシート）",
+				items: [
+					{ en: "figure skater", ja: "フィギュアスケーター" },
+					{ en: "ask ~to ...", ja: "～に…するよう頼む" },
+					{ en: "word(s)", ja: "語、単語" },
+					{ en: "be on one's side", ja: "～の味方である" },
+					{ en: "inspire", ja: "～を感激させる" },
+					{ en: "barrier-free", ja: "バリアフリーの" },
+					{ en: "event", ja: "出来事" },
+					{ en: "sign language", ja: "手話" },
+					{ en: "scared", ja: "怯えた、怖がって" },
+					{ en: "ramp", ja: "スロープ" },
+					{ en: "ice skating", ja: "アイススケート" },
+					{ en: "move", ja: "動く、移動する" },
+					{ en: "rink", ja: "リンク、アイススケート場" },
+					{ en: "audio", ja: "音声の" },
+					{ en: "support", ja: "～を支援する" },
+					{ en: "restroom", ja: "トイレ" },
+					{ en: "receive", ja: "～を受け取る" },
+					{ en: "service", ja: "サービス" },
+					{ en: "be able to~", ja: "～することができる" },
+					{ en: "braille", ja: "（ブライユ式）点字" },
+					{ en: "continue", ja: "～を続ける" },
+					{ en: "pictogram", ja: "ピクトグラム" },
+					{ en: "supporter(s)", ja: "支援者" },
+					{ en: "American", ja: "アメリカの" },
+					{ en: "thankful", ja: "感謝している" },
+					{ en: "large", ja: "大きい、広い" },
+					{ en: "communicate", ja: "コミュニケーションをとる" },
+					{ en: "price", ja: "価格、値段" },
+					{ en: "communicating", ja: "communicateの動名詞" },
+					{ en: "euro(s)", ja: "ユーロ" },
+					{ en: "speak", ja: "話す" },
+					{ en: "virtual", ja: "仮想の" },
+					{ en: "spoke", ja: "speakの過去形" },
+					{ en: "liberty", ja: "自由" },
+					{ en: "opinion(s)", ja: "意見、考え" },
+					{ en: "lead (ing)", ja: "～を導く" },
+					{ en: "gesture(s)", ja: "身振り" },
+					{ en: "review(ed)", ja: "レビューを書く" },
+					{ en: "somehow", ja: "どうにかして" },
+					{ en: "online", ja: "オンラインの" },
+					{ en: "skill(s)", ja: "技量" },
+					{ en: "fantastic", ja: "素晴らしい" },
+					{ en: "became", ja: "becomeの過去形" },
+					{ en: "close", ja: "接近して、すぐ近くで" },
+					{ en: "anyway", ja: "それでもやはり" },
+					{ en: "explanation(s)", ja: "説明" },
+					{ en: "take away ~", ja: "～を奪う" },
+					{ en: "daytime", ja: "日中、日中の" },
+					{ en: "because of ~", ja: "～の理由で" },
+					{ en: "up close", ja: "近くで" },
+					{ en: "do one's best", ja: "全力を尽くす" },
+					{ en: "Sweden", ja: "スウェーデン" },
+					{ en: "couldn't", ja: "できなかった" },
+					{ en: "record(s)", ja: "記録" },
+					{ en: "competition(s)", ja: "競技会" },
+					{ en: "challenge", ja: "～に挑む" },
+					{ en: "limit(s)", ja: "限界" },
+					{ en: "weakness(es)", ja: "弱点、弱さ" },
+					{ en: "above", ja: "～の上に" },
+					{ en: "audience", ja: "観客" },
+					{ en: "succeed", ja: "成功する、うまくいく" },
+					{ en: "side", ja: "～の側" },
+					{ en: "everything I can", ja: "できること全て" },
+					{ en: "above all", ja: "何よりも" },
+					{ en: "all of~", ja: "～の全て" }
+				]
+			},
+			{
+				name: "中３ Unit6・中2 Unit6（6W）",
+				description: "中3 Unit6・中2 Unit6 の単語（6Wシート）",
+				items: [
+					{ en: "guide", ja: "ガイド、案内人" },
+					{ en: "donate", ja: "～を寄付する" },
+					{ en: "guide dog(s)", ja: "盲導犬" },
+					{ en: "pick", ja: "～を選ぶ、つまみ取る" },
+					{ en: "Fred", ja: "フレッド" },
+					{ en: "trash", ja: "ごみ、くず" },
+					{ en: "Coco", ja: "ココ" },
+					{ en: "host", ja: "～をもてなす" },
+					{ en: "visually impaired", ja: "視覚障害のある" },
+					{ en: "exchange", ja: "交流、交換" },
+					{ en: "destination", ja: "目的地" },
+					{ en: "exchange student", ja: "交換留学生" },
+					{ en: "warn(s)", ja: "警告する、注意する" },
+					{ en: "pick up ~", ja: "～を拾い上げる" },
+					{ en: "step(s)", ja: "段" },
+					{ en: "glad", ja: "～を嬉しく思う" },
+					{ en: "smart", ja: "頭のよい" },
+					{ en: "raise", ja: "～を育てる" },
+					{ en: "someone", ja: "誰か、ある人" },
+					{ en: "experience", ja: "経験、体験" },
+					{ en: "pay", ja: "（注意など）払う" },
+					{ en: "according to ~", ja: "～によれば" },
+					{ en: "attention", ja: "注意、関心" },
+					{ en: "talk to ~", ja: "～に相談する" },
+					{ en: "might", ja: "～かもしれない" },
+					{ en: "think about ~", ja: "～のことをよく考える" },
+					{ en: "assistance", ja: "援助、助力" },
+					{ en: "I think so", ja: "そう思います。" },
+					{ en: "pay attention to~", ja: "～に注意を払う" },
+					{ en: "I’ll think about it", ja: "考えておきます。" },
+					{ en: "girlfriend", ja: "ガールフレンド" },
+					{ en: "exam", ja: "試験、テスト" },
+					{ en: "become", ja: "～になる" },
+					{ en: "rescue", ja: "～を救う" },
+					{ en: "language", ja: "言語" },
+					{ en: "feed", ja: "～に食べ物を与える" },
+					{ en: "world", ja: "世界、地球" },
+					{ en: "member(s)", ja: "メンバー、一員" },
+					{ en: "travel", ja: "旅行する" },
+					{ en: "opening", ja: "冒頭部分、導入" },
+					{ en: "make friends", ja: "友達をつくる" },
+					{ en: "body", ja: "体、中心部" },
+					{ en: "all over the world", ja: "世界中で" },
+					{ en: "bodies", ja: "60の複数形" },
+					{ en: "website", ja: "ウェヴサイト" },
+					{ en: "closing", ja: "結び、まとめ" },
+					{ en: "future", ja: "将来の、未来の" },
+					{ en: "look up~", ja: "～を調べる" },
+					{ en: "puppy", ja: "子犬" },
+					{ en: "all the~", ja: "すべての" },
+					{ en: "walker(s)", ja: "歩く人" },
+					{ en: "drive", ja: "運転する" },
+					{ en: "spend", ja: "（時）を過ごす" },
+					{ en: "basic", ja: "基本の、基礎となる" },
+					{ en: "social", ja: "社会の" },
+					{ en: "essential", ja: "不可欠の、必要な" },
+					{ en: "training", ja: "訓練" },
+					{ en: "test(s)", ja: "テスト、試験" },
+					{ en: "retire", ja: "引退する" },
+					{ en: "remaining", ja: "残りの" },
+					{ en: "another", ja: "別の、他の" },
+					{ en: "learn to ~", ja: "～できるようになる" },
+					{ en: "earth", ja: "地球" },
+					{ en: "impress(ed)", ja: "～に感動を与える" },
+					{ en: "plant", ja: "（植物）を植える" }
+				]
+			}
+		];
+
+		const enInput = document.getElementById("enInput");
+		const jaInput = document.getElementById("jaInput");
+		const addBtn = document.getElementById("addBtn");
+		const addPoolBtn = document.getElementById("addPoolBtn");
+		const poolSelect = document.getElementById("poolSelect");
+		const poolNote = document.getElementById("poolNote");
+		const toggleListBtn = document.getElementById("toggleListBtn");
+		const clearBtn = document.getElementById("clearBtn");
+		const list = document.getElementById("list");
+		const count = document.getElementById("count");
+
+		const quizCard = document.getElementById("quizCard");
+		const quizLabel = document.getElementById("quizLabel");
+		const quizText = document.getElementById("quizText");
+		const answerArea = document.getElementById("answerArea");
+		const spellInput = document.getElementById("spellInput");
+		const checkBtn = document.getElementById("checkBtn");
+		const swipeNote = document.getElementById("swipeNote");
+		const bucketCount = document.getElementById("bucketCount");
+		const allScopeBtn = document.getElementById("allScopeBtn");
+		const wrongScopeBtn = document.getElementById("wrongScopeBtn");
+		const scopeState = document.getElementById("scopeState");
+		const summaryPanel = document.getElementById("summaryPanel");
+		const summaryText = document.getElementById("summaryText");
+		const finishRoundBtn = document.getElementById("finishRoundBtn");
+		const retrySameBtn = document.getElementById("retrySameBtn");
+		const retryWrongBtn = document.getElementById("retryWrongBtn");
+		const toggleSelectorBtn = document.getElementById("toggleSelectorBtn");
+		const selectorPanel = document.getElementById("selectorPanel");
+		const selectorList = document.getElementById("selectorList");
+		const selectedCount = document.getElementById("selectedCount");
+		const selectAllBtn = document.getElementById("selectAllBtn");
+		const clearSelectBtn = document.getElementById("clearSelectBtn");
+		const nextBtn = document.getElementById("nextBtn");
+		const showBtn = document.getElementById("showBtn");
+		const result = document.getElementById("result");
+
+		const modeRadios = document.querySelectorAll("input[name='mode']");
+
+		let cards = loadCards();
+		let selectedIds = loadSelectedIds();
+		let cardResults = loadCardResults();
+		let current = 0;
+		let flipped = false;
+		let isListVisible = false;
+		let isSelectorVisible = false;
+		let quizScope = "all";
+		let forcedRoundIds = null;
+		let roundOrderIds = [];
+		let roundAnsweredIds = new Set();
+		let roundCorrect = 0;
+		let roundWrong = 0;
+		let lastCompletedRoundIds = [];
+		let isRoundSummaryVisible = false;
+		let isLearningEnded = false;
+		let dragState = null;
+		let ignoreNextClick = false;
+		let spellingAdvanceTimer = null;
+
+		function loadCards() {
+			try {
+				const raw = localStorage.getItem(STORAGE_KEY);
+				const parsed = raw ? JSON.parse(raw) : [];
+				if (!Array.isArray(parsed)) {
+					return [];
+				}
+				return parsed
+					.filter((card) => card && typeof card.en === "string" && typeof card.ja === "string")
+					.map((card, index) => ({
+						id: card.id || buildId(index),
+						en: card.en,
+						ja: card.ja
+					}));
+			} catch {
+				return [];
+			}
+		}
+
+		function loadSelectedIds() {
+			try {
+				const raw = localStorage.getItem(STORAGE_SELECTED_KEY);
+				const parsed = raw ? JSON.parse(raw) : [];
+				return new Set(Array.isArray(parsed) ? parsed : []);
+			} catch {
+				return new Set();
+			}
+		}
+
+		function createEmptyCardResults() {
+			return {
+				"en-ja": {},
+				"ja-en": {}
+			};
+		}
+
+		function normalizeCardResults(raw) {
+			if (!raw || typeof raw !== "object") {
+				return createEmptyCardResults();
+			}
+
+			if (raw["en-ja"] || raw["ja-en"]) {
+				return {
+					"en-ja": raw["en-ja"] && typeof raw["en-ja"] === "object" ? raw["en-ja"] : {},
+					"ja-en": raw["ja-en"] && typeof raw["ja-en"] === "object" ? raw["ja-en"] : {}
+				};
+			}
+
+			return {
+				"en-ja": { ...raw },
+				"ja-en": { ...raw }
+			};
+		}
+
+		function loadCardResults() {
+			try {
+				const raw = localStorage.getItem(STORAGE_RESULTS_KEY);
+				const parsed = raw ? JSON.parse(raw) : null;
+				return normalizeCardResults(parsed);
+			} catch {
+				return createEmptyCardResults();
+			}
+		}
+
+		function saveCards() {
+			localStorage.setItem(STORAGE_KEY, JSON.stringify(cards));
+		}
+
+		function saveSelectedIds() {
+			localStorage.setItem(STORAGE_SELECTED_KEY, JSON.stringify([...selectedIds]));
+		}
+
+		function saveCardResults() {
+			localStorage.setItem(STORAGE_RESULTS_KEY, JSON.stringify(cardResults));
+		}
+
+		function getModeResults(mode = currentMode()) {
+			if (!cardResults[mode] || typeof cardResults[mode] !== "object") {
+				cardResults[mode] = {};
+			}
+			return cardResults[mode];
+		}
+
+		function setModeResult(mode, cardId, status) {
+			getModeResults(mode)[cardId] = status;
+		}
+
+		function buildId(seed) {
+			if (window.crypto && window.crypto.randomUUID) {
+				return window.crypto.randomUUID();
+			}
+			return `card_${Date.now()}_${seed}_${Math.random().toString(36).slice(2, 9)}`;
+		}
+
+		function createCard(en, ja) {
+			return { id: buildId(cards.length), en, ja };
+		}
+
+		function isDuplicateCard(en, ja) {
+			const normalizedEn = normalize(en);
+			const normalizedJa = normalize(ja);
+			return cards.some((card) => normalize(card.en) === normalizedEn && normalize(card.ja) === normalizedJa);
+		}
+
+		function normalize(text) {
+			return text.trim().toLowerCase();
+		}
+
+		function syncSelection() {
+			const existingIds = new Set(cards.map((card) => card.id));
+			selectedIds.forEach((id) => {
+				if (!existingIds.has(id)) {
+					selectedIds.delete(id);
+				}
+			});
+
+			if (cards.length > 0 && selectedIds.size === 0) {
+				cards.forEach((card) => selectedIds.add(card.id));
+			}
+			saveSelectedIds();
+
+			Object.keys(cardResults).forEach((mode) => {
+				const modeResults = cardResults[mode];
+				if (!modeResults || typeof modeResults !== "object") {
+					delete cardResults[mode];
+					return;
+				}
+				Object.keys(modeResults).forEach((id) => {
+					if (!existingIds.has(id)) {
+						delete modeResults[id];
+					}
+				});
+			});
+			saveCardResults();
+		}
+
+		function getQuizCards() {
+			const selectedCards = cards.filter((card) => selectedIds.has(card.id));
+			if (forcedRoundIds && forcedRoundIds.length > 0) {
+				const map = new Map(selectedCards.map((card) => [card.id, card]));
+				return forcedRoundIds.map((id) => map.get(id)).filter(Boolean);
+			}
+			if (quizScope === "wrong") {
+				const modeResults = getModeResults();
+				return selectedCards.filter((card) => modeResults[card.id] === "wrong");
+			}
+			return selectedCards;
+		}
+
+		function sameIdOrder(a, b) {
+			if (a.length !== b.length) {
+				return false;
+			}
+			for (let i = 0; i < a.length; i += 1) {
+				if (a[i] !== b[i]) {
+					return false;
+				}
+			}
+			return true;
+		}
+
+		function hideSummaryPanel() {
+			summaryPanel.classList.add("hidden");
+			isRoundSummaryVisible = false;
+		}
+
+		function resetRoundProgress(quizCards) {
+			roundOrderIds = quizCards.map((card) => card.id);
+			roundAnsweredIds = new Set();
+			roundCorrect = 0;
+			roundWrong = 0;
+			hideSummaryPanel();
+		}
+
+		function syncRoundProgress(quizCards) {
+			const ids = quizCards.map((card) => card.id);
+			if (!sameIdOrder(roundOrderIds, ids)) {
+				resetRoundProgress(quizCards);
+			}
+		}
+
+		function showRoundSummary() {
+			isRoundSummaryVisible = true;
+			lastCompletedRoundIds = [...roundOrderIds];
+			summaryText.textContent = `1周完了: ${roundOrderIds.length}問中 ${roundCorrect}問正解 / ${roundWrong}問間違い`;
+			summaryPanel.classList.remove("hidden");
+		}
+
+		function isQuizLocked() {
+			return isRoundSummaryVisible || isLearningEnded;
+		}
+
+		function recordRoundAnswer(cardId, isCorrect) {
+			if (!roundOrderIds.includes(cardId) || roundAnsweredIds.has(cardId)) {
+				return false;
+			}
+
+			roundAnsweredIds.add(cardId);
+			if (isCorrect) {
+				roundCorrect += 1;
+			} else {
+				roundWrong += 1;
+			}
+
+			if (roundAnsweredIds.size >= roundOrderIds.length && roundOrderIds.length > 0) {
+				showRoundSummary();
+				return true;
+			}
+			return false;
+		}
+
+		function updateScopeUI() {
+			const isWrong = quizScope === "wrong";
+			allScopeBtn.classList.toggle("scope-active", !isWrong);
+			wrongScopeBtn.classList.toggle("scope-active", isWrong);
+			scopeState.textContent = isWrong ? "現在: 間違いだけ出題" : "現在: 通常出題";
+		}
+
+		function setQuizScope(scope) {
+			quizScope = scope;
+			forcedRoundIds = null;
+			isLearningEnded = false;
+			current = 0;
+			updateScopeUI();
+			renderQuiz();
+		}
+
+		function getCurrentQuizCard() {
+			const quizCards = getQuizCards();
+			if (quizCards.length === 0) {
+				return null;
+			}
+			if (current >= quizCards.length) {
+				current = 0;
+			}
+			return quizCards[current];
+		}
+
+		function renderBucketCount() {
+			let correct = 0;
+			let wrong = 0;
+			Object.values(getModeResults()).forEach((status) => {
+				if (status === "correct") {
+					correct += 1;
+				} else if (status === "wrong") {
+					wrong += 1;
+				}
+			});
+			bucketCount.textContent = `${currentMode() === "en-ja" ? "英→日" : "日→英"} 仕分け: 正解${correct}件 / 間違い${wrong}件`;
+		}
+
+		function resetCardPosition() {
+			quizCard.classList.remove("dragging");
+			quizCard.style.transform = "";
+		}
+
+		function clearSpellingFeedback() {
+			if (spellingAdvanceTimer) {
+				clearTimeout(spellingAdvanceTimer);
+				spellingAdvanceTimer = null;
+			}
+			quizCard.classList.remove("feedback-correct", "feedback-wrong");
+			checkBtn.disabled = false;
+			spellInput.disabled = false;
+		}
+
+		function showSpellingFeedback(isCorrect, message, shouldAdvance, lockInput = true) {
+			clearSpellingFeedback();
+			quizCard.classList.add(isCorrect ? "feedback-correct" : "feedback-wrong");
+			result.className = isCorrect ? "result ok" : "result ng";
+			result.textContent = message;
+			checkBtn.disabled = lockInput;
+			spellInput.disabled = lockInput;
+
+			if (shouldAdvance) {
+				spellingAdvanceTimer = window.setTimeout(() => {
+					spellingAdvanceTimer = null;
+					nextCard();
+				}, 1100);
+			}
+		}
+
+		function classifyBySwipe(isCorrect) {
+			const card = getCurrentQuizCard();
+			if (!card) {
+				return;
+			}
+			setModeResult(currentMode(), card.id, isCorrect ? "correct" : "wrong");
+			saveCardResults();
+			renderBucketCount();
+			const isRoundDone = recordRoundAnswer(card.id, isCorrect);
+			result.className = isCorrect ? "result ok" : "result ng";
+			result.textContent = isCorrect ? "正解に仕分けしました" : "間違いに仕分けしました";
+			if (isRoundDone) {
+				renderQuiz();
+				return;
+			}
+			nextCard();
+		}
+
+		function currentMode() {
+			return document.querySelector("input[name='mode']:checked").value;
+		}
+
+		function renderList() {
+			count.textContent = `カード: ${cards.length}件`;
+			list.innerHTML = "";
+			if (cards.length === 0) {
+				list.innerHTML = '<div class="row muted">まだカードがありません</div>';
+				updateListButton();
+				return;
+			}
+
+			cards.forEach((card, index) => {
+				const row = document.createElement("div");
+				row.className = "row";
+
+				const en = document.createElement("div");
+				en.textContent = card.en;
+
+				const ja = document.createElement("div");
+				ja.textContent = card.ja;
+
+				const del = document.createElement("button");
+				del.textContent = "削除";
+				del.addEventListener("click", () => {
+					cards.splice(index, 1);
+					selectedIds.delete(card.id);
+					const quizCards = getQuizCards();
+					if (current >= quizCards.length) {
+						current = Math.max(0, quizCards.length - 1);
+					}
+					saveCards();
+					saveSelectedIds();
+					renderList();
+					renderSelector();
+					renderQuiz();
+				});
+
+				row.appendChild(en);
+				row.appendChild(ja);
+				row.appendChild(del);
+				list.appendChild(row);
+			});
+
+			updateListButton();
+		}
+
+		function renderSelector() {
+			selectorList.innerHTML = "";
+			const quizCards = getQuizCards();
+			selectedCount.textContent = `出題対象: ${quizCards.length}件 / 全${cards.length}件`;
+
+			if (cards.length === 0) {
+				selectorList.innerHTML = '<div class="row muted">カードがありません</div>';
+				return;
+			}
+
+			cards.forEach((card) => {
+				const row = document.createElement("label");
+				row.className = "selector-row";
+
+				const check = document.createElement("input");
+				check.type = "checkbox";
+				check.checked = selectedIds.has(card.id);
+				check.addEventListener("change", () => {
+					if (check.checked) {
+						selectedIds.add(card.id);
+					} else {
+						selectedIds.delete(card.id);
+					}
+					saveSelectedIds();
+					renderSelector();
+					if (current >= getQuizCards().length) {
+						current = 0;
+					}
+					renderQuiz();
+				});
+
+				const text = document.createElement("span");
+				text.textContent = `${card.en} / ${card.ja}`;
+
+				row.appendChild(check);
+				row.appendChild(text);
+				selectorList.appendChild(row);
+			});
+		}
+
+		function updateListButton() {
+			if (isListVisible) {
+				toggleListBtn.textContent = "全カード一覧を閉じる";
+			} else {
+				toggleListBtn.textContent = "全カード一覧を表示";
+			}
+		}
+
+		function toggleList() {
+			isListVisible = !isListVisible;
+			list.classList.toggle("hidden", !isListVisible);
+			updateListButton();
+		}
+
+		function renderQuiz() {
+			const mode = currentMode();
+			const quizCards = getQuizCards();
+			syncRoundProgress(quizCards);
+			flipped = false;
+			clearSpellingFeedback();
+			result.textContent = "";
+			result.className = "result";
+			resetCardPosition();
+
+			if (cards.length === 0) {
+				hideSummaryPanel();
+				isLearningEnded = false;
+				quizLabel.textContent = "";
+				quizText.textContent = "カードを追加してください";
+				answerArea.classList.remove("show");
+				quizCard.classList.remove("tap");
+				return;
+			}
+
+			if (quizCards.length === 0) {
+				hideSummaryPanel();
+				quizLabel.textContent = "";
+				quizText.textContent = quizScope === "wrong" ? "間違いカードがありません" : "出題カードを1件以上選んでください";
+				answerArea.classList.remove("show");
+				quizCard.classList.remove("tap");
+				return;
+			}
+
+			if (isLearningEnded) {
+				quizLabel.textContent = "";
+				quizText.textContent = "学習を終了しました。再開する場合は通常出題またはもう一周を選んでください。";
+				answerArea.classList.remove("show");
+				quizCard.classList.remove("tap");
+				return;
+			}
+
+			if (isRoundSummaryVisible) {
+				quizLabel.textContent = "";
+				quizText.textContent = "1周完了です。下のボタンから続け方を選んでください。";
+				answerArea.classList.remove("show");
+				quizCard.classList.remove("tap");
+				return;
+			}
+
+			if (current >= quizCards.length) {
+				current = 0;
+			}
+
+			const card = quizCards[current];
+
+			if (mode === "en-ja") {
+				quizLabel.textContent = "英語";
+				quizText.textContent = card.en;
+				answerArea.classList.remove("show");
+				quizCard.classList.add("tap");
+				swipeNote.textContent = "英→日では、タップで答え表示。答え確認後に左スワイプで間違い、右スワイプで正解に仕分けできます。";
+			} else {
+				quizLabel.textContent = "日本語";
+				quizText.textContent = card.ja;
+				answerArea.classList.add("show");
+				quizCard.classList.remove("tap");
+				swipeNote.textContent = "日→英モードでは入力で判定します。";
+				spellInput.value = "";
+				spellInput.focus();
+			}
+		}
+
+		function nextCard() {
+			const quizCards = getQuizCards();
+			if (quizCards.length === 0) {
+				return;
+			}
+			current = (current + 1) % quizCards.length;
+			renderQuiz();
+		}
+
+		function showAnswer() {
+			const quizCards = getQuizCards();
+			if (quizCards.length === 0) {
+				return;
+			}
+			const mode = currentMode();
+			const card = quizCards[current];
+			if (mode === "en-ja") {
+				flipped = !flipped;
+				quizLabel.textContent = flipped ? "日本語" : "英語";
+				quizText.textContent = flipped ? card.ja : card.en;
+			} else {
+				result.className = "result";
+				result.textContent = `答え: ${card.en}`;
+			}
+		}
+
+		function checkSpelling() {
+			const quizCards = getQuizCards();
+			if (quizCards.length === 0 || currentMode() !== "ja-en") {
+				return;
+			}
+			if (isQuizLocked()) {
+				return;
+			}
+
+			const card = quizCards[current];
+			const answer = normalize(card.en);
+			const typed = normalize(spellInput.value);
+
+			if (!typed) {
+				showSpellingFeedback(false, "入力してください", false, false);
+				return;
+			}
+
+			if (typed === answer) {
+				setModeResult(currentMode(), card.id, "correct");
+				saveCardResults();
+				renderBucketCount();
+				const isRoundDone = recordRoundAnswer(card.id, true);
+				showSpellingFeedback(true, `正解！答え: ${card.en}`, !isRoundDone);
+			} else {
+				setModeResult(currentMode(), card.id, "wrong");
+				saveCardResults();
+				renderBucketCount();
+				const isRoundDone = recordRoundAnswer(card.id, false);
+				showSpellingFeedback(false, `不正解。正しいスペル: ${card.en}`, !isRoundDone);
+			}
+		}
+
+		function restartWithCurrentQuizSet() {
+			const quizCards = getQuizCards();
+			isLearningEnded = false;
+			current = 0;
+			resetRoundProgress(quizCards);
+			renderQuiz();
+		}
+
+		function renderPoolOptions() {
+			poolSelect.innerHTML = "";
+			POOLS.forEach((pool, index) => {
+				const option = document.createElement("option");
+				option.value = String(index);
+				option.textContent = `${pool.name} (${pool.items.length}件)`;
+				poolSelect.appendChild(option);
+			});
+			updatePoolNote();
+		}
+
+		function updatePoolNote() {
+			const pool = POOLS[Number(poolSelect.value)] || POOLS[0];
+			if (!pool) {
+				poolNote.textContent = "プールがありません";
+				return;
+			}
+			poolNote.textContent = `${pool.description} / 収録: ${pool.items.length}件`;
+		}
+
+		function addFromPool() {
+			const pool = POOLS[Number(poolSelect.value)];
+			if (!pool) {
+				return;
+			}
+
+			let added = 0;
+			let skipped = 0;
+			pool.items.forEach((item) => {
+				const exists = cards.some((card) => normalize(card.en) === normalize(item.en) && normalize(card.ja) === normalize(item.ja));
+				if (exists) {
+					skipped += 1;
+					return;
+				}
+				const card = createCard(item.en, item.ja);
+				cards.push(card);
+				selectedIds.add(card.id);
+				added += 1;
+			});
+
+			saveCards();
+			saveSelectedIds();
+			renderList();
+			renderSelector();
+			renderQuiz();
+			alert(`プール追加: ${added}件追加 / ${skipped}件重複`);
+		}
+
+		function toggleSelector() {
+			isSelectorVisible = !isSelectorVisible;
+			selectorPanel.classList.toggle("hidden", !isSelectorVisible);
+			toggleSelectorBtn.textContent = isSelectorVisible ? "出題カード選択を閉じる" : "出題カードを選ぶ";
+		}
+
+		addBtn.addEventListener("click", () => {
+			const en = enInput.value.trim();
+			const ja = jaInput.value.trim();
+			if (!en || !ja) {
+				alert("英語と日本語の両方を入力してください");
+				return;
+			}
+
+			if (isDuplicateCard(en, ja)) {
+				alert("同じカードがすでに登録されています");
+				return;
+			}
+
+			const card = createCard(en, ja);
+			cards.push(card);
+			selectedIds.add(card.id);
+			forcedRoundIds = null;
+			isLearningEnded = false;
+			saveCards();
+			saveSelectedIds();
+			enInput.value = "";
+			jaInput.value = "";
+			current = Math.max(0, getQuizCards().length - 1);
+			renderList();
+			renderSelector();
+			renderQuiz();
+			enInput.focus();
+		});
+
+		clearBtn.addEventListener("click", () => {
+			if (!cards.length) {
+				return;
+			}
+			if (!confirm("カードをすべて削除しますか？")) {
+				return;
+			}
+			cards = [];
+			selectedIds = new Set();
+			cardResults = createEmptyCardResults();
+			current = 0;
+			forcedRoundIds = null;
+			roundOrderIds = [];
+			roundAnsweredIds = new Set();
+			roundCorrect = 0;
+			roundWrong = 0;
+			lastCompletedRoundIds = [];
+			isRoundSummaryVisible = false;
+			isLearningEnded = false;
+			isListVisible = false;
+			isSelectorVisible = false;
+			list.classList.add("hidden");
+			selectorPanel.classList.add("hidden");
+			toggleSelectorBtn.textContent = "出題カードを選ぶ";
+			saveCards();
+			saveSelectedIds();
+			saveCardResults();
+			renderList();
+			renderSelector();
+			renderBucketCount();
+			renderQuiz();
+		});
+
+		addPoolBtn.addEventListener("click", addFromPool);
+		poolSelect.addEventListener("change", updatePoolNote);
+		toggleListBtn.addEventListener("click", toggleList);
+		toggleSelectorBtn.addEventListener("click", toggleSelector);
+		selectAllBtn.addEventListener("click", () => {
+			forcedRoundIds = null;
+			isLearningEnded = false;
+			cards.forEach((card) => selectedIds.add(card.id));
+			saveSelectedIds();
+			renderSelector();
+			renderQuiz();
+		});
+		clearSelectBtn.addEventListener("click", () => {
+			forcedRoundIds = null;
+			isLearningEnded = false;
+			selectedIds.clear();
+			saveSelectedIds();
+			current = 0;
+			renderSelector();
+			renderQuiz();
+		});
+		allScopeBtn.addEventListener("click", () => setQuizScope("all"));
+		wrongScopeBtn.addEventListener("click", () => setQuizScope("wrong"));
+		nextBtn.addEventListener("click", nextCard);
+		showBtn.addEventListener("click", showAnswer);
+		checkBtn.addEventListener("click", checkSpelling);
+
+		spellInput.addEventListener("keydown", (event) => {
+			if (event.key === "Enter") {
+				checkSpelling();
+			}
+		});
+
+		quizCard.addEventListener("click", () => {
+			if (isQuizLocked()) {
+				return;
+			}
+			if (ignoreNextClick) {
+				ignoreNextClick = false;
+				return;
+			}
+			if (currentMode() === "en-ja") {
+				showAnswer();
+			}
+		});
+
+		quizCard.addEventListener("pointerdown", (event) => {
+			if (isQuizLocked()) {
+				return;
+			}
+			if (event.button !== 0 || currentMode() !== "en-ja") {
+				return;
+			}
+			if (!getCurrentQuizCard()) {
+				return;
+			}
+			dragState = { startX: event.clientX, moved: false, pointerId: event.pointerId };
+			quizCard.setPointerCapture(event.pointerId);
+		});
+
+		quizCard.addEventListener("pointermove", (event) => {
+			if (isQuizLocked()) {
+				return;
+			}
+			if (!dragState || dragState.pointerId !== event.pointerId || currentMode() !== "en-ja") {
+				return;
+			}
+			const deltaX = event.clientX - dragState.startX;
+			if (Math.abs(deltaX) > 6) {
+				dragState.moved = true;
+				quizCard.classList.add("dragging");
+				quizCard.style.transform = `translateX(${deltaX}px) rotate(${deltaX * 0.03}deg)`;
+			}
+		});
+
+		quizCard.addEventListener("pointerup", (event) => {
+			if (isQuizLocked()) {
+				return;
+			}
+			if (!dragState || dragState.pointerId !== event.pointerId || currentMode() !== "en-ja") {
+				return;
+			}
+			const deltaX = event.clientX - dragState.startX;
+			const swiped = Math.abs(deltaX) >= 90;
+			if (dragState.moved) {
+				ignoreNextClick = true;
+			}
+			resetCardPosition();
+			dragState = null;
+
+			if (!swiped) {
+				return;
+			}
+
+			if (!flipped) {
+				showAnswer();
+				return;
+			}
+
+			classifyBySwipe(deltaX > 0);
+		});
+
+		quizCard.addEventListener("pointercancel", () => {
+			dragState = null;
+			resetCardPosition();
+		});
+
+		finishRoundBtn.addEventListener("click", () => {
+			forcedRoundIds = null;
+			isLearningEnded = true;
+			hideSummaryPanel();
+			renderQuiz();
+		});
+
+		retrySameBtn.addEventListener("click", () => {
+			if (!lastCompletedRoundIds.length) {
+				return;
+			}
+			forcedRoundIds = [...lastCompletedRoundIds];
+			isLearningEnded = false;
+			restartWithCurrentQuizSet();
+		});
+
+		retryWrongBtn.addEventListener("click", () => {
+			forcedRoundIds = null;
+			setQuizScope("wrong");
+			isLearningEnded = false;
+			restartWithCurrentQuizSet();
+		});
+
+		modeRadios.forEach((radio) => {
+			radio.addEventListener("change", renderQuiz);
+		});
+
+		renderPoolOptions();
+		syncSelection();
+		renderList();
+		renderSelector();
+		renderBucketCount();
+		updateScopeUI();
+		updateListButton();
+		renderQuiz();
+
+		const tabMake = document.getElementById("tabMake");
+		const tabStudy = document.getElementById("tabStudy");
+		const pageMake = document.getElementById("pageMake");
+		const pageStudy = document.getElementById("pageStudy");
+
+		function switchTab(tabName) {
+			const isMake = tabName === "make";
+			pageMake.classList.toggle("active", isMake);
+			pageStudy.classList.toggle("active", !isMake);
+			tabMake.classList.toggle("active", isMake);
+			tabStudy.classList.toggle("active", !isMake);
+			if (!isMake) {
+				renderQuiz();
+			}
+		}
+
+		tabMake.addEventListener("click", () => switchTab("make"));
+		tabStudy.addEventListener("click", () => switchTab("study"));
+	</script>
+</body>
+</html>
