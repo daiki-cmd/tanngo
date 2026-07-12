@@ -2971,16 +2971,37 @@
 
 		function getQuizCards() {
 			const selectedCards = cards.filter((card) => selectedIds.has(card.id));
+            let baseCards;
 			if (forcedRoundIds && forcedRoundIds.length > 0) {
 				const map = new Map(selectedCards.map((card) => [card.id, card]));
-				return forcedRoundIds.map((id) => map.get(id)).filter(Boolean);
+                baseCards = forcedRoundIds.map((id) => map.get(id)).filter(Boolean);
+            } else if (quizScope === "wrong") {
+                const modeResults = getModeResults();
+                baseCards = selectedCards.filter((card) => modeResults[card.id] === "wrong");
+            } else {
+                baseCards = selectedCards;
 			}
-			if (quizScope === "wrong") {
-				const modeResults = getModeResults();
-				return selectedCards.filter((card) => modeResults[card.id] === "wrong");
+
+            if (roundOrderIds.length === 0 || roundOrderIds.length !== baseCards.length) {
+                return baseCards;
 			}
-			return selectedCards;
+
+            const map = new Map(baseCards.map((card) => [card.id, card]));
+            const orderedCards = roundOrderIds.map((id) => map.get(id)).filter(Boolean);
+            if (orderedCards.length !== baseCards.length) {
+                return baseCards;
+            }
+            return orderedCards;
 		}
+
+        function shuffleCards(cardList) {
+            const shuffled = [...cardList];
+            for (let i = shuffled.length - 1; i > 0; i -= 1) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+            }
+            return shuffled;
+        }
 
 		function sameIdOrder(a, b) {
 			if (a.length !== b.length) {
@@ -3000,7 +3021,7 @@
 		}
 
 		function resetRoundProgress(quizCards) {
-			roundOrderIds = quizCards.map((card) => card.id);
+            roundOrderIds = shuffleCards(quizCards).map((card) => card.id);
 			roundAnsweredIds = new Set();
 			roundCorrect = 0;
 			roundWrong = 0;
