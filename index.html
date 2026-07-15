@@ -3668,5 +3668,157 @@
 		tabMake.addEventListener("click", () => switchTab("make"));
 		tabStudy.addEventListener("click", () => switchTab("study"));
 	</script>
+
+	<script>
+		(() => {
+			const DECKS_KEY = "tanngo_saved_decks_v1";
+			const UNLOCK_KEY = "tanngo_unlocked_v1";
+
+			const style = document.createElement("style");
+			style.textContent = `
+				.deck-save-box { margin-top: 12px; padding: 12px; border: 2px solid #20332866; border-radius: 12px; background: #fff; }
+				.deck-save-row { display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: end; }
+				.deck-save-row button { width: auto; min-width: 150px; }
+				.lock-screen { position: fixed; inset: 0; z-index: 10000; display: grid; place-items: center; padding: 20px; background: linear-gradient(135deg, var(--bg-1), var(--bg-2)); }
+				.lock-box { width: min(420px, 100%); padding: 24px; border: 2px solid var(--line); border-radius: 18px; background: #fffaf0; box-shadow: 8px 8px 0 #00000020; }
+				.lock-box h2 { margin: 0 0 8px; }
+				.lock-box p { margin: 0 0 14px; }
+				.lock-error { min-height: 1.4em; margin-top: 8px !important; color: var(--ng); font-weight: 700; }
+				@media (max-width: 600px) { .deck-save-row { grid-template-columns: 1fr; } .deck-save-row button { width: 100%; } }
+			`;
+			document.head.appendChild(style);
+
+			function loadDecks() {
+				try {
+					const value = JSON.parse(localStorage.getItem(DECKS_KEY) || "[]");
+					return Array.isArray(value) ? value : [];
+				} catch (_) {
+					return [];
+				}
+			}
+
+			function saveDecks(decks) {
+				localStorage.setItem(DECKS_KEY, JSON.stringify(decks));
+			}
+
+			function appendSavedDeckOptions() {
+				poolSelect.querySelectorAll('option[data-saved-deck="true"]').forEach((option) => option.remove());
+				loadDecks().forEach((deck) => {
+					const option = document.createElement("option");
+					option.value = `saved:${deck.id}`;
+					option.dataset.savedDeck = "true";
+					option.textContent = `${deck.name}（保存済み・${deck.items.length}件）`;
+					poolSelect.appendChild(option);
+				});
+			}
+
+			const saveBox = document.createElement("div");
+			saveBox.className = "deck-save-box";
+			saveBox.innerHTML = `
+				<div class="deck-save-row">
+					<div><label for="deckNameInput">単語帳の名前</label><input id="deckNameInput" placeholder="例：定期テスト Unit 1" maxlength="60"></div>
+					<button id="saveDeckBtn" class="primary">単語帳を保存</button>
+				</div>
+				<p id="saveDeckMessage" class="muted" style="margin:8px 0 0;">現在のカードを名前付きで問題プールに保存します。</p>
+			`;
+			count.parentNode.insertBefore(saveBox, count);
+
+			const deckNameInput = document.getElementById("deckNameInput");
+			const saveDeckMessage = document.getElementById("saveDeckMessage");
+			document.getElementById("saveDeckBtn").addEventListener("click", () => {
+				const name = deckNameInput.value.trim();
+				if (!name) {
+					alert("単語帳の名前を入力してください。");
+					deckNameInput.focus();
+					return;
+				}
+				if (!cards.length) {
+					alert("保存するカードがありません。");
+					return;
+				}
+
+				const decks = loadDecks();
+				const sameNameIndex = decks.findIndex((deck) => deck.name === name);
+				const deck = {
+					id: sameNameIndex >= 0 ? decks[sameNameIndex].id : `deck_${Date.now()}_${Math.random().toString(36).slice(2)}`,
+					name,
+					items: cards.map(({ en, ja }) => ({ en, ja })),
+					updatedAt: new Date().toISOString()
+				};
+
+				if (sameNameIndex >= 0) {
+					if (!confirm(`「${name}」を現在の内容で上書きしますか？`)) return;
+					decks[sameNameIndex] = deck;
+				} else {
+					decks.push(deck);
+				}
+
+				saveDecks(decks);
+				appendSavedDeckOptions();
+				poolSelect.value = `saved:${deck.id}`;
+				poolNote.textContent = `保存した単語帳「${name}」 / カード数: ${deck.items.length}件`;
+				saveDeckMessage.textContent = `「${name}」を保存しました。`;
+			});
+
+			poolSelect.addEventListener("change", () => {
+				if (!poolSelect.value.startsWith("saved:")) return;
+				const deck = loadDecks().find((item) => `saved:${item.id}` === poolSelect.value);
+				if (deck) poolNote.textContent = `保存した単語帳「${deck.name}」 / カード数: ${deck.items.length}件`;
+			});
+
+			addPoolBtn.addEventListener("click", () => {
+				if (!poolSelect.value.startsWith("saved:")) return;
+				const deck = loadDecks().find((item) => `saved:${item.id}` === poolSelect.value);
+				if (!deck) return;
+				let added = 0;
+				let skipped = 0;
+				deck.items.forEach((item) => {
+					if (cards.some((card) => normalize(card.en) === normalize(item.en) && normalize(card.ja) === normalize(item.ja))) {
+						skipped += 1;
+						return;
+					}
+					const card = createCard(item.en, item.ja);
+					cards.push(card);
+					selectedIds.add(card.id);
+					added += 1;
+				});
+				saveCards();
+				saveSelectedIds();
+				renderList();
+				renderSelector();
+				renderQuiz();
+				alert(`「${deck.name}」から ${added}件追加しました（重複 ${skipped}件）。`);
+			});
+
+			appendSavedDeckOptions();
+
+			if (sessionStorage.getItem(UNLOCK_KEY) !== "ok") {
+				const lockScreen = document.createElement("div");
+				lockScreen.className = "lock-screen";
+				lockScreen.innerHTML = `
+					<form class="lock-box" id="passwordForm">
+						<h2>単語帳アプリ</h2>
+						<p>使用するにはパスワードを入力してください。</p>
+						<label for="passwordInput">パスワード</label>
+						<input id="passwordInput" type="password" autocomplete="current-password" autofocus>
+						<button class="primary" type="submit" style="margin-top:10px;">開く</button>
+						<p id="passwordError" class="lock-error" aria-live="polite"></p>
+					</form>
+				`;
+				document.body.appendChild(lockScreen);
+				const passwordInput = document.getElementById("passwordInput");
+				document.getElementById("passwordForm").addEventListener("submit", (event) => {
+					event.preventDefault();
+					if (passwordInput.value === "miraoto") {
+						sessionStorage.setItem(UNLOCK_KEY, "ok");
+						lockScreen.remove();
+					} else {
+						document.getElementById("passwordError").textContent = "パスワードが違います。";
+						passwordInput.select();
+					}
+				});
+			}
+		})();
+	</script>
 </body>
 </html>
